@@ -3,6 +3,7 @@
 	     '("melpa" . "http://melpa.milkbox.net/packages/") t)
 (package-initialize)
 
+(setq mac-command-modifier 'meta)
 (setq gc-cons-threshold 100000000)
 (setq inhibit-startup-message t)
 
@@ -11,6 +12,7 @@
 (defconst demo-packages
   '(anzu
     company
+    company-c-headers
     duplicate-thing
     ggtags
     helm
@@ -28,7 +30,13 @@
     projectile
     volatile-highlights
     undo-tree
-    zygospore))
+    company-jedi
+    exec-path-from-shell
+    zygospore
+    irony
+    irony-eldoc
+    flycheck-irony
+    company-irony))
 
 (defun install-packages ()
   "Install all required packages."
@@ -46,7 +54,9 @@
 (setq helm-gtags-prefix-key "\C-cg")
 
 (add-to-list 'load-path "~/.emacs.d/custom")
+(add-to-list 'custom-theme-load-path "~/.emacs.d/theme/emacs-color-theme-solarized")
 
+(exec-path-from-shell-initialize)
 (require 'setup-helm)
 (require 'setup-helm-gtags)
 ;; (require 'setup-ggtags)
@@ -61,20 +71,88 @@
 ;; (define-key c-mode-map  [(tab)] 'company-complete)
 ;; (define-key c++-mode-map  [(tab)] 'company-complete)
 
+(add-hook 'c++-mode-hook 'irony-mode)
+(add-hook 'c-mode-hook 'irony-mode)
+(add-hook 'objc-mode-hook 'irony-mode)
+
 ;; company
 (require 'company)
+(add-hook 'c++-mode-hook 'company-mode)
+(add-hook 'c-mode-hook 'company-mode)
+
 (add-hook 'after-init-hook 'global-company-mode)
 (delete 'company-semantic company-backends)
-(define-key c-mode-map  [(tab)] 'company-complete)
-(define-key c++-mode-map  [(tab)] 'company-complete)
+;;(define-key c-mode-map  [(tab)] 'company-complete)
+;;(define-key c++-mode-map  [(tab)] 'company-complete)
 ;; (define-key c-mode-map  [(control tab)] 'company-complete)
 ;; (define-key c++-mode-map  [(control tab)] 'company-complete)
 
 ;; company-c-headers
 (add-to-list 'company-backends 'company-c-headers)
 
+
+;; replace the `completion-at-point' and `complete-symbol' bindings in
+;; irony-mode's buffers by irony-mode's function
+;;(defun my-irony-mode-hook ()
+;;  (define-key irony-mode-map [remap completion-at-point]
+;;    'irony-completion-at-point-async)
+;;  (define-key irony-mode-map [remap complete-symbol]
+;;    'irony-completion-at-point-async))
+;;(add-hook 'irony-mode-hook 'my-irony-mode-hook)
+;;(add-hook 'irony-mode-hook 'irony-cdb-autosetup-compile-options)
+(eval-after-load 'company
+'(add-to-list 'company-backends 'company-irony))
+;; (optional) adds CC special commands to `company-begin-commands' in order to
+;; trigger completion at interesting places, such as after scope operator
+;;     std::|
+(add-hook 'irony-mode-hook 'company-irony-setup-begin-commands)
+;; =============
+;; flycheck-mode
+;; =============
+(add-hook 'c++-mode-hook 'flycheck-mode)
+(add-hook 'c-mode-hook 'flycheck-mode)
+(eval-after-load 'flycheck
+'(add-hook 'flycheck-mode-hook #'flycheck-irony-setup))
+;; =============
+;; eldoc-mode
+;; =============
+(add-hook 'irony-mode-hook 'irony-eldoc)
+;; ==========================================
+;; (optional) bind TAB for indent-or-complete
+;; ==========================================
+(defun irony--check-expansion ()
+(save-excursion
+  (if (looking-at "\\_>") t
+    (backward-char 1)
+    (if (looking-at "\\.") t
+      (backward-char 1)
+      (if (looking-at "->") t nil)))))
+(defun irony--indent-or-complete ()
+"Indent or Complete"
+(interactive)
+(cond ((and (not (use-region-p))
+            (irony--check-expansion))
+       (message "complete")
+       (company-complete-common))
+      (t
+       (message "indent")
+       (call-interactively 'c-indent-line-or-region))))
+(defun irony-mode-keys ()
+"Modify keymaps used by `irony-mode'."
+(local-set-key (kbd "TAB") 'irony--indent-or-complete)
+(local-set-key [tab] 'irony--indent-or-complete))
+(add-hook 'c-mode-common-hook 'irony-mode-keys)
+(setq irony-additional-clang-options '("-std=c++11"))
+
+(setq irony--compile-options
+      '("-std=c++11"
+        "-stdlib=libc++"))
 ;; hs-minor-mode for folding source code
 (add-hook 'c-mode-common-hook 'hs-minor-mode)
+
+(defun my/python-mode-hook ()
+  (add-to-list 'company-backends 'company-jedi))
+(add-hook 'python-mode-hook 'my/python-mode-hook)
 
 ;; Available C style:
 ;; “gnu”: The default style for GNU projects
@@ -104,6 +182,8 @@
 
 ;; set appearance of a tab that is represented by 4 spaces
 (setq-default tab-width 4)
+(defvaralias 'c-basic-offset 'tab-width)
+(defvaralias 'cperl-indent-level 'tab-width)
 
 ;; Compilation
 (global-set-key (kbd "<f5>") (lambda ()
@@ -158,3 +238,30 @@
 
 ;; Package zygospore
 (global-set-key (kbd "C-x 1") 'zygospore-toggle-delete-other-windows)
+
+(load-theme 'solarized t)
+(let ((mode (if (not window-system) 'dark 'light)))
+  (set-frame-parameter nil 'background-mode mode)
+  (set-terminal-parameter nil 'background-mode mode))
+(enable-theme 'solarized)
+
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(company-c-headers-path-system
+   (quote
+    ("/usr/local/opt/llvm/include/c++/v1" "/usr/include/" "/usr/local/include/")))
+ '(company-clang-arguments
+   (quote
+    ("-I/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1")))
+ '(tool-bar-mode nil))
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ )
+
+(setq backup-directory-alist `(("." . "~/.saves")))
