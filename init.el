@@ -62,6 +62,8 @@
 ;; (require 'setup-ggtags)
 (require 'setup-cedet)
 (require 'setup-editing)
+(require 'protobuf-mode)
+(setq auto-mode-alist  (cons '(".proto$" . protobuf-mode) auto-mode-alist))
 
 (windmove-default-keybindings)
 
