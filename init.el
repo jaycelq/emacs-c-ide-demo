@@ -12,7 +12,7 @@
 (defconst demo-packages
   '(anzu
     company
-    company-c-headers
+    company-irony-c-headers
     duplicate-thing
     ggtags
     helm
@@ -77,8 +77,9 @@
 (add-hook 'after-init-hook 'global-company-mode)
 (delete 'company-semantic company-backends)
 
-;; company-c-headers
-(add-to-list 'company-backends 'company-c-headers)
+;; company-irony-c-headers
+(require 'company-irony-c-headers)
+(add-to-list 'company-backends 'company-irony-c-headers)
 
 
 (eval-after-load 'company
@@ -226,16 +227,7 @@
 (enable-theme 'solarized)
 
 (custom-set-variables
- ;; custom-set-variables was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(company-c-headers-path-system
-   (quote
-    ("/usr/local/opt/llvm/include/c++/v1" "/usr/include/" "/usr/local/include/")))
- '(company-clang-arguments
-   (quote
-    ("-I/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1")))
+ '(scroll-bar-mode nil)
  '(tool-bar-mode nil))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
